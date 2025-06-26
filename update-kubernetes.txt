@@ -131,12 +131,15 @@ kubeadm upgrade plan
  
 # 运行命令，升级到的目标版本
 kubeadm upgrade apply v1.31.0
-# （可选）若不升级 etcd，选择下方命令
+# （可选）若不升级 etcd，选择下方命令！！！！！
 kubeadm upgrade apply v1.31.0 --etcd-upgrade=false
  
 # 注意：
 # 其他控制节点，使用 kubeadm upgrade node，不使用 kubeadm upgrade apply 命令
 # 并且不需要执行 kubeadm upgrade plan 和更新 CNI 驱动插件的操作
+在多控制平面节点（HA 架构）中：
+只有第一个控制面节点 才使用 kubeadm upgrade apply（负责升级集群整体状态）。
+其他控制面节点 使用 kubeadm upgrade node（只升级本地节点的组件，不改变集群状态）
 
 
 
@@ -149,11 +152,10 @@ kubeadm upgrade apply v1.31.0 --etcd-upgrade=false
 a、升级 kubelet、kubectl
 # 将节点标记为不可调度并驱逐所有负载
 kubectl get node
-kubectl drain master --ignore-daemonsets
+                kubectl drain master --ignore-daemonsets
  
-# 升级 kubelet 和 kubectl
+# 升级 kubelet 和 kubectl                            新版本可能不需要（升级 kubelet 和 kubectl，但需要重启kubelet）
 yum install -y kubelet-1.31.0 kubectl-1.31.0
- 
 # 重启 kubelet
 systemctl daemon-reload 
 systemctl restart kubelet
@@ -162,8 +164,8 @@ systemctl restart kubelet
 kubelet --version 
 kubectl version
  
-# 解除 master 节点的保护，恢复调度
-kubectl uncordon master
+#  解除 master 节点的保护，恢复调度
+                   kubectl uncordon master
  
 # 查看 master 状态为 ready，所有 Pod 状态 runnig
 kubectl get nodes
