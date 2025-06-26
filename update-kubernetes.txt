@@ -1,0 +1,134 @@
+操作系统：CentOS Linux 7 (Core)
+Containerd：1.6.33
+Kubernetes：1.30.1 - 1.31.0
+1、升级 control plane nodes
+1.1、kubeadm 升级
+
+
+
+
+
+
+a、查看当前节点状态
+# 查看当前节点状态及版本，kubeadm\kubelet\kubectl 版本
+# 此处举例升级一个控制节点
+kubectl get node
+kubeadm version
+kubelet version
+kubectl version
+
+
+
+
+
+
+b、更改 Kubernetes 软件包仓库
+# 查看当前配置为 1.30 的 Kubernetes 软件包仓库
+cat /etc/yum.repos.d/kubernetes.repo
+yum list kubeadm --showduplicates
+ 
+# 备份原有配置
+mv /etc/yum.repos.d/kubernetes.repo /etc/yum.repos.d/kubernetes.repo.bak
+ 
+# 更改 Kubernetes 软件包仓库，此处配置阿里的源
+cat <<EOF | tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://mirrors.aliyun.com/kubernetes-new/core/stable/v1.31/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/kubernetes-new/core/stable/v1.31/rpm/repodata/repomd.xml.key
+EOF
+ 
+cat /etc/yum.repos.d/kubernetes.repo
+
+
+
+
+
+
+
+
+
+c、升级 kubeadm
+# 添加新 .repo 文件后，清理 YUM 的缓存，以便可识别新的软件源
+yum clean all
+ 
+# 升级 kubeadm
+yum install -y kubeadm-1.31.0
+ 
+# 验证下载操作正常，并且 kubeadm 版本正确
+kubeadm version
+ 
+# 验证升级计划
+kubeadm upgrade plan
+ 
+# 运行命令，升级到的目标版本
+kubeadm upgrade apply v1.31.0
+# （可选）若不升级 etcd，选择下方命令
+kubeadm upgrade apply v1.31.0 --etcd-upgrade=false
+ 
+# 注意：
+# 其他控制节点，使用 kubeadm upgrade node，不使用 kubeadm upgrade apply 命令
+# 并且不需要执行 kubeadm upgrade plan 和更新 CNI 驱动插件的操作
+
+
+
+
+
+
+
+
+1.2 kubelet、kubectl 升级
+a、升级 kubelet、kubectl
+# 将节点标记为不可调度并驱逐所有负载
+kubectl get node
+kubectl drain master --ignore-daemonsets
+ 
+# 升级 kubelet 和 kubectl
+yum install -y kubelet-1.31.0 kubectl-1.31.0
+ 
+# 重启 kubelet
+systemctl daemon-reload 
+systemctl restart kubelet
+ 
+# 验证 kubelet、kubectl 升级成功
+kubelet --version 
+kubectl version
+ 
+# 解除 master 节点的保护，恢复调度
+kubectl uncordon master
+ 
+# 查看 master 状态为 ready，所有 Pod 状态 runnig
+kubectl get nodes
+kubectl get pod -A
+
+
+
+
+
+
+2、升级 Linux nodes
+### 升级工作节点 ###
+# 更改 Kubernetes 软件包仓库，可见 1->1.1->b 部分内容
+ 
+# 升级 kubeadm
+yum install -y kubeadm-1.31.0
+ 
+# 执行 kubeadm upgrade，升级本地的 kubelet 配置
+kubeadm upgrade node
+ 
+# 将节点标记为不可调度并驱逐所有负载，准备节点的维护
+# 在控制平面节点上执行此命令，<node-to-drain> 为正腾空的节点名称
+kubectl drain <node-to-drain> --ignore-daemonsets
+ 
+# 升级 kubelet 和 kubectl
+yum install -y kubelet-1.31.0 kubectl-1.31.0
+ 
+# 重启 kubelet
+systemctl daemon-reload
+systemctl restart kubelet
+ 
+# 取消对节点的保护
+# 在控制平面节点上执行此命令，<node-to-uncordon> 为节点名称
+kubectl uncordon <node-to-uncordon>
