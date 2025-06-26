@@ -8,6 +8,70 @@ Kubernetes：1.30.1 - 1.31.0
 
 
 
+好习惯先备份etcd
+ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 \
+--cacert=/etc/kubernetes/pki/etcd/ca.crt \
+--cert=/etc/kubernetes/pki/etcd/server.crt \
+--key=/etc/kubernetes/pki/etcd/server.key \
+snapshot save /path/to/backup/snapshot.db
+踩坑可恢复
+ETCDCTL_API=3 etcdctl snapshot restore /backup/etcd-snapshot-20250626.db \
+--name etcd1 \
+--initial-cluster etcd1=http://192.168.1.1:2380,etcd2=http://192.168.1.2:2380,etcd3=http://192.168.1.3:2380 \
+--initial-cluster-token my-etcd-cluster-token \
+--initial-advertise-peer-urls http://192.168.1.1:2380 \
+--data-dir /var/lib/etcd
+
+
+/path/to/backup/snapshot.db:
+
+    这是你之前使用 etcdctl snapshot save 创建的快照文件的完整路径。
+    示例：/backup/etcd-snapshot-20250626.db
+
+--name <etcd-member-name>:
+
+    指定要恢复的 etcd 成员的名字。
+    在多成员的 etcd 集群中，每个成员都有一个唯一的名称。
+    示例：如果你的 etcd 成员名是 etcd1，则该参数应为 --name etcd1
+
+--initial-cluster <member1=http://<ip1>:2380,member2=http://<ip2>:2380,...>:
+
+    定义了整个 etcd 集群的所有成员及其通信地址（peer URLs）。
+    对于单节点集群，这只需包含当前节点的信息；对于多节点集群，则需列出所有节点的信息。
+    示例：在三节点集群中，如果节点分别是 etcd1, etcd2, 和 etcd3，其 IP 分别为 192.168.1.1, 192.168.1.2, 和 192.168.1.3，则该参数应为：
+
+    深色版本
+
+    --initial-cluster etcd1=http://192.168.1.1:2380,etcd2=http://192.168.1.2:2380,etcd3=http://192.168.1.3:2380
+
+--initial-cluster-token <token>:
+
+    用于标识集群的唯一令牌。这对于首次启动一个新的集群非常重要，但在从备份恢复时，这个值可以随意设置，因为它主要影响的是新集群的初始化而不是已有数据的恢复。
+    示例：my-etcd-cluster-token
+
+--initial-advertise-peer-urls http://<local-ip>:2380:
+
+    当前 etcd 成员对外广播的 peer URL 地址，其他成员将通过此地址与之通信。
+    <local-ip> 应替换为运行此命令的机器的实际 IP 地址。
+    示例：如果当前机器的 IP 是 192.168.1.1，则该参数应为 --initial-advertise-peer-urls http://192.168.1.1:2380
+
+--data-dir /var/lib/etcd:
+
+    指定 etcd 数据存储目录的位置。恢复后的数据将被放置在此目录下。
+    根据你的实际情况调整路径，默认通常是 /var/lib/etcd。
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 a、查看当前节点状态
 # 查看当前节点状态及版本，kubeadm\kubelet\kubectl 版本
@@ -16,6 +80,8 @@ kubectl get node
 kubeadm version
 kubelet version
 kubectl version
+
+
 
 
 
